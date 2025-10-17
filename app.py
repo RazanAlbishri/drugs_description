@@ -4,6 +4,12 @@ from fastapi.middleware.cors import CORSMiddleware
 import pandas as pd
 import re
 
+app = FastAPI()
+
+@app.get("/")
+def root():
+    return {"message": "Hello from FastAPI"}
+
 # -------------------------------------------
 # ⚙️ App Configuration
 # -------------------------------------------
