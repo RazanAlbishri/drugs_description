@@ -4,12 +4,6 @@ from fastapi.middleware.cors import CORSMiddleware
 import pandas as pd
 import re
 
-app = FastAPI()
-
-@app.get("/")
-def root():
-    return {"message": "Hello from FastAPI"}
-
 # -------------------------------------------
 # ⚙️ App Configuration
 # -------------------------------------------
@@ -43,8 +37,6 @@ df = load_data()
 # 🌐 Language dictionaries
 # -------------------------------------------
 EN = {
-    "title": "💊 Drugs Dataset Dashboard & Chatbot",
-    "chat_header": "💬 Smart Drugs Chatbot",
     "no_match": "⚠️ No matching drug found.",
     "use": "Use",
     "side": "⚠️ Side Effects",
@@ -57,8 +49,6 @@ EN = {
 }
 
 AR = {
-    "title": "💊 لوحة بيانات الأدوية وروبوت المحادثة",
-    "chat_header": "💬 روبوت الأدوية الذكي",
     "no_match": "⚠️ لم يتم العثور على دواء مطابق.",
     "use": "الاستخدام",
     "side": "⚠️ الأعراض الجانبية",
@@ -110,7 +100,7 @@ def search_drug_api(
         }
 
     data = []
-    for _, row in results.head(3).iterrows():
+    for _, row in results.head(5).iterrows():
         trade = row.get("TradeName", "Unknown")
         sci = row.get("ScientificName", "Unknown")
         q = name.lower()
@@ -143,14 +133,4 @@ def search_drug_api(
         "count": len(data),
         "language": language,
         "results": data
-    }
-
-# -------------------------------------------
-# 🏠 Root Endpoint
-# -------------------------------------------
-@app.get("/")
-def root():
-    return {
-        "message": "💊 Welcome to the Drugs Data API (EN/AR)",
-        "usage": "Use /search?name=augmentin&language=english to query medicines"
     }
