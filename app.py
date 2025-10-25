@@ -1,14 +1,11 @@
-# 💊 Medicine App (FastAPI Version) — Smart Display (EN/AR)
 from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
 import pandas as pd
 import re
 
-# -------------------------------------------
-# ⚙️ App Configuration
-# -------------------------------------------
+# Configuration
 app = FastAPI(
-    title="💊 Drugs Data API",
+    title="Drugs Data API",
     description="Bilingual (EN/AR) Medicine Information API with smart name matching",
     version="2.0"
 )
@@ -22,9 +19,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# -------------------------------------------
-# 📂 Load and Clean Data
-# -------------------------------------------
+# Load and Clean Data
 def load_data():
     df = pd.read_csv("Drugs_discription.csv", dtype=str, low_memory=False)
     df.columns = df.columns.str.strip()
@@ -33,39 +28,35 @@ def load_data():
 
 df = load_data()
 
-# -------------------------------------------
-# 🌐 Language dictionaries
-# -------------------------------------------
+# Language dictionaries
 EN = {
-    "no_match": "⚠️ No matching drug found.",
+    "no_match": "No matching drug found.",
     "use": "Use",
-    "side": "⚠️ Side Effects",
-    "sub": "💊 Substitutes",
-    "tclass": "🏥 Therapeutic Class",
-    "cclass": "🧪 Chemical Class",
+    "side": "Side Effects",
+    "sub": "Substitutes",
+    "tclass": "Therapeutic Class",
+    "cclass": "Chemical Class",
     "habit": "Habit Forming",
-    "trade": "💊 Trade Name",
-    "sci": "🧪 Scientific Name",
+    "trade": "Trade Name",
+    "sci": "Scientific Name",
 }
 
 AR = {
-    "no_match": "⚠️ لم يتم العثور على دواء مطابق.",
+    "no_match": "لم يتم العثور على دواء مطابق.",
     "use": "الاستخدام",
-    "side": "⚠️ الأعراض الجانبية",
-    "sub": "💊 البدائل",
-    "tclass": "🏥 الفئة العلاجية",
-    "cclass": "🧪 الفئة الكيميائية",
+    "side": "الأعراض الجانبية",
+    "sub": "البدائل",
+    "tclass": "الفئة العلاجية",
+    "cclass": "الفئة الكيميائية",
     "habit": "قابلية الإدمان",
-    "trade": "💊 الاسم التجاري",
-    "sci": "🧪 الاسم العلمي",
+    "trade": "الاسم التجاري",
+    "sci": "الاسم العلمي",
 }
 
 def get_text(lang, key):
     return (AR if lang == "arabic" else EN)[key]
 
-# -------------------------------------------
-# 🔍 Search Logic
-# -------------------------------------------
+# Search Logic
 def search_drug(query: str):
     q = query.lower().strip()
     search_columns = [col for col in ["TradeName", "ScientificName"] if col in df.columns]
@@ -75,9 +66,7 @@ def search_drug(query: str):
         mask |= df[col].astype(str).str.lower().str.contains(pattern, na=False, regex=True)
     return df[mask]
 
-# -------------------------------------------
-# 🚀 API Endpoint: /search
-# -------------------------------------------
+# API Endpoint: /search
 @app.get("/search")
 def search_drug_api(
     name: str = Query(..., description="Drug name (trade or scientific)"),
@@ -107,9 +96,9 @@ def search_drug_api(
 
         # Determine which name is main
         if q in str(sci).lower():
-            main = {"main": f"🧪 {sci}", "secondary": f"{get_text(language, 'trade')}: {trade}"}
+            main = {"main": f"{sci}", "secondary": f"{get_text(language, 'trade')}: {trade}"}
         else:
-            main = {"main": f"💊 {trade}", "secondary": f"{get_text(language, 'sci')}: {sci}"}
+            main = {"main": f"{trade}", "secondary": f"{get_text(language, 'sci')}: {sci}"}
 
         item = {**main}
 
