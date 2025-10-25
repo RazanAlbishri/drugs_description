@@ -7,10 +7,10 @@ import re
 app = FastAPI(
     title="Drugs Data API",
     description="Bilingual (EN/AR) Medicine Information API with smart name matching",
-    version="2.0"
+    version="3.0"
 )
 
-# Allow CORS (to allow access from frontend or Streamlit if needed)
+# Allow CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -27,6 +27,13 @@ def load_data():
     return df
 
 df = load_data()
+
+def format_to_bullets(text):
+    if not isinstance(text, str):
+        return text
+    parts = re.split(r'[;,]', text)
+    parts = [p.strip() for p in parts if p.strip()]
+    return "\n".join(f"• {p}" for p in parts)
 
 # Language dictionaries
 EN = {
@@ -56,7 +63,7 @@ AR = {
 def get_text(lang, key):
     return (AR if lang == "arabic" else EN)[key]
 
-# Search Logic
+# Smart Matching Search
 def search_drug(query: str):
     q = query.lower().strip()
     search_columns = [col for col in ["TradeName", "ScientificName"] if col in df.columns]
@@ -66,16 +73,16 @@ def search_drug(query: str):
         mask |= df[col].astype(str).str.lower().str.contains(pattern, na=False, regex=True)
     return df[mask]
 
-# API Endpoint: /search
+# API Endpoint
 @app.get("/search")
 def search_drug_api(
     name: str = Query(..., description="Drug name (trade or scientific)"),
     language: str = Query("english", description="Language: english or arabic"),
     use: bool = Query(True),
     side: bool = Query(True),
-    sub: bool = Query(False),
-    tclass: bool = Query(False),
-    cclass: bool = Query(False),
+    sub: bool = Query(True),
+    tclass: bool = Query(True),
+    cclass: bool = Query(True),
     habit: bool = Query(False)
 ):
     results = search_drug(name)
@@ -94,7 +101,6 @@ def search_drug_api(
         sci = row.get("ScientificName", "Unknown")
         q = name.lower()
 
-        # Determine which name is main
         if q in str(sci).lower():
             main = {"main": f"{sci}", "secondary": f"{get_text(language, 'trade')}: {trade}"}
         else:
@@ -102,16 +108,21 @@ def search_drug_api(
 
         item = {**main}
 
-        if use and "use" in row:
-            item[get_text(language, "use")] = row["use"]
-        if side and "sideEffect" in row:
-            item[get_text(language, "side")] = row["sideEffect"]
-        if sub and "substitute" in row:
-            item[get_text(language, "sub")] = row["substitute"]
-        if tclass and "Therapeutic Class" in row:
-            item[get_text(language, "tclass")] = row["Therapeutic Class"]
-        if cclass and "Chemical Class" in row:
-            item[get_text(language, "cclass")] = row["Chemical Class"]
+        if use:
+            item[get_text(language, "use")] = format_to_bullets(row.get("use", "Unknown"))
+
+        if side:
+            item[get_text(language, "side")] = format_to_bullets(row.get("sideEffect", "Unknown"))
+
+        if sub:
+            item[get_text(language, "sub")] = format_to_bullets(row.get("substitute", "Unknown"))
+
+        if tclass:
+            item[get_text(language, "tclass")] = format_to_bullets(row.get("Therapeutic Class", "Unknown"))
+
+        if cclass:
+            item[get_text(language, "cclass")] = format_to_bullets(row.get("Chemical Class", "Unknown"))
+
         if habit and "Habit Forming" in row:
             item[get_text(language, "habit")] = row["Habit Forming"]
 
