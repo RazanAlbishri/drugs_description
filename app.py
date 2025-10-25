@@ -7,7 +7,7 @@ import re
 app = FastAPI(
     title="Drugs Data API",
     description="Bilingual (EN/AR) Medicine Information API with smart name matching",
-    version="3.0"
+    version="3.1"
 )
 
 # Allow CORS
@@ -28,12 +28,12 @@ def load_data():
 
 df = load_data()
 
-def format_to_bullets(text):
+def format_list(text):
     if not isinstance(text, str):
         return text
     parts = re.split(r'[;,]', text)
     parts = [p.strip() for p in parts if p.strip()]
-    return "\n".join(f"• {p}" for p in parts)
+    return "\n".join(f"- {p}" for p in parts)
 
 # Language dictionaries
 EN = {
@@ -63,7 +63,7 @@ AR = {
 def get_text(lang, key):
     return (AR if lang == "arabic" else EN)[key]
 
-# Smart Matching Search
+# Smart search
 def search_drug(query: str):
     q = query.lower().strip()
     search_columns = [col for col in ["TradeName", "ScientificName"] if col in df.columns]
@@ -76,8 +76,8 @@ def search_drug(query: str):
 # API Endpoint
 @app.get("/search")
 def search_drug_api(
-    name: str = Query(..., description="Drug name (trade or scientific)"),
-    language: str = Query("english", description="Language: english or arabic"),
+    name: str = Query(...),
+    language: str = Query("english"),
     use: bool = Query(True),
     side: bool = Query(True),
     sub: bool = Query(True),
@@ -109,22 +109,22 @@ def search_drug_api(
         item = {**main}
 
         if use:
-            item[get_text(language, "use")] = format_to_bullets(row.get("use", "Unknown"))
+            item[get_text(language, "use")] = row.get("use", "Unknown")
 
         if side:
-            item[get_text(language, "side")] = format_to_bullets(row.get("sideEffect", "Unknown"))
+            item[get_text(language, "side")] = format_list(row.get("sideEffect", "Unknown"))
 
         if sub:
-            item[get_text(language, "sub")] = format_to_bullets(row.get("substitute", "Unknown"))
+            item[get_text(language, "sub")] = format_list(row.get("substitute", "Unknown"))
 
         if tclass:
-            item[get_text(language, "tclass")] = format_to_bullets(row.get("Therapeutic Class", "Unknown"))
+            item[get_text(language, "tclass")] = row.get("Therapeutic Class", "Unknown")
 
         if cclass:
-            item[get_text(language, "cclass")] = format_to_bullets(row.get("Chemical Class", "Unknown"))
+            item[get_text(language, "cclass")] = row.get("Chemical Class", "Unknown")
 
-        if habit and "Habit Forming" in row:
-            item[get_text(language, "habit")] = row["Habit Forming"]
+        if habit:
+            item[get_text(language, "habit")] = row.get("Habit Forming", "Unknown")
 
         data.append(item)
 
