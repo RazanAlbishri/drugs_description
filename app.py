@@ -2,12 +2,13 @@ from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
 import pandas as pd
 import re
+from googletrans import Translator
 
 # Configuration
 app = FastAPI(
     title="Drugs Data API",
-    description="Bilingual (EN/AR) Medicine Information API with smart name matching",
-    version="3.1"
+    description="Bilingual (EN/AR) Medicine Information API",
+    version="3.2"
 )
 
 # Allow CORS
@@ -19,6 +20,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+translator = Translator()
+
 # Load and Clean Data
 def load_data():
     df = pd.read_csv("Drugs_discription.csv", dtype=str, low_memory=False)
@@ -28,11 +31,21 @@ def load_data():
 
 df = load_data()
 
-def format_list(text):
+def format_list(text, lang):
     if not isinstance(text, str):
         return text
-    parts = re.split(r'[;,]', text)
-    parts = [p.strip() for p in parts if p.strip()]
+
+    parts = [p.strip() for p in re.split(r'[;,]', text) if p.strip()]
+    if lang == "arabic":
+        translated = []
+        for item in parts:
+            try:
+                tr = translator.translate(item, dest="ar").text
+                translated.append(f"- {tr}")
+            except:
+                translated.append(f"- {item}")
+        return "\n".join(translated)
+    
     return "\n".join(f"- {p}" for p in parts)
 
 # Language dictionaries
@@ -66,11 +79,13 @@ def get_text(lang, key):
 # Smart search
 def search_drug(query: str):
     q = query.lower().strip()
-    search_columns = [col for col in ["TradeName", "ScientificName"] if col in df.columns]
+    search_columns = ["TradeName", "ScientificName"]
     mask = pd.Series(False, index=df.index)
-    pattern = rf"\b{re.escape(q)}\b"
+
     for col in search_columns:
-        mask |= df[col].astype(str).str.lower().str.contains(pattern, na=False, regex=True)
+        if col in df.columns:
+            mask |= df[col].astype(str).str.lower().str.contains(q)
+
     return df[mask]
 
 # API Endpoint
@@ -85,6 +100,7 @@ def search_drug_api(
     cclass: bool = Query(True),
     habit: bool = Query(False)
 ):
+    language = language.lower()
     results = search_drug(name)
 
     if results.empty:
@@ -99,35 +115,26 @@ def search_drug_api(
     for _, row in results.head(5).iterrows():
         trade = row.get("TradeName", "Unknown")
         sci = row.get("ScientificName", "Unknown")
-        q = name.lower()
 
-        if q in str(sci).lower():
-            main = {"main": f"{sci}", "secondary": f"{get_text(language, 'trade')}: {trade}"}
+        # Main title shown depends on search
+        if name.lower() in str(sci).lower():
+            main = {"main": sci, "secondary": f"{get_text(language, 'trade')}: {trade}"}
         else:
-            main = {"main": f"{trade}", "secondary": f"{get_text(language, 'sci')}: {sci}"}
-
+            main = {"main": trade, "secondary": f"{get_text(language, 'sci')}: {sci}"}
         item = {**main}
-
         if use:
-            item[get_text(language, "use")] = row.get("use", "Unknown")
-
+            item[get_text(language, "use")] = format_list(row.get("use", "Unknown"), language)
         if side:
-            item[get_text(language, "side")] = format_list(row.get("sideEffect", "Unknown"))
-
+            item[get_text(language, "side")] = format_list(row.get("sideEffect", "Unknown"), language)
         if sub:
-            item[get_text(language, "sub")] = format_list(row.get("substitute", "Unknown"))
-
+            item[get_text(language, "sub")] = format_list(row.get("substitute", "Unknown"), language)
         if tclass:
             item[get_text(language, "tclass")] = row.get("Therapeutic Class", "Unknown")
-
         if cclass:
             item[get_text(language, "cclass")] = row.get("Chemical Class", "Unknown")
-
         if habit:
             item[get_text(language, "habit")] = row.get("Habit Forming", "Unknown")
-
         data.append(item)
-
     return {
         "query": name,
         "count": len(data),
